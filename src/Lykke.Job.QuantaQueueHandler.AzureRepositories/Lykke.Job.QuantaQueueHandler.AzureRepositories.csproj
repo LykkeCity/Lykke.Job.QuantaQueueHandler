@@ -8,4 +8,8 @@
     <PackageReference Include="Lykke.AzureStorage" Version="1.2.24" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Lykke.Job.QuantaQueueHandler.Core\Lykke.Job.QuantaQueueHandler.Core.csproj" />
+  </ItemGroup>
+
 </Project>

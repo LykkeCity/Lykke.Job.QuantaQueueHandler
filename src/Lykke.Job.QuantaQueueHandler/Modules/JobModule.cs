@@ -1,10 +1,19 @@
 ﻿using System;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
+using AzureStorage.Tables;
+using AzureStorage.Tables.Templates.Index;
+using Common;
 using Common.Log;
+using Lykke.Job.QuantaQueueHandler.AzureRepositories.BitCoin;
+using Lykke.Job.QuantaQueueHandler.AzureRepositories.PaymentSystems;
 using Lykke.Job.QuantaQueueHandler.Core;
+using Lykke.Job.QuantaQueueHandler.Core.Domain.BitCoin;
+using Lykke.Job.QuantaQueueHandler.Core.Domain.PaymentSystems;
 using Lykke.Job.QuantaQueueHandler.Core.Services;
 using Lykke.Job.QuantaQueueHandler.Services;
+using Lykke.Job.QuantaQueueHandler.Services.Exchange;
+using Lykke.MatchingEngine.Connector.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lykke.Job.QuantaQueueHandler.Modules
@@ -41,9 +50,40 @@ namespace Lykke.Job.QuantaQueueHandler.Modules
             // NOTE: You can implement your own poison queue notifier. See https://github.com/LykkeCity/JobTriggers/blob/master/readme.md
             // builder.Register<PoisionQueueNotifierImplementation>().As<IPoisionQueueNotifier>();
 
-            // TODO: Add your dependencies here
+            var socketLog = new SocketLogDynamic(i => { },
+                str => Console.WriteLine(DateTime.UtcNow.ToIsoDateTime() + ": " + str));
+
+            builder.BindMeConnector(_settings.MatchingEngine.IpEndpoint.GetClientIpEndPoint(), socketLog);
+
+            RegisterAzureRepositories(builder, _settings.Db);
+            RegisterServices(builder);
 
             builder.Populate(_services);
+        }
+
+        private static void RegisterServices(ContainerBuilder builder)
+        {
+            builder.RegisterType<ExchangeOperationsService>().SingleInstance();
+        }
+
+        private void RegisterAzureRepositories(ContainerBuilder builder, AppSettings.DbSettings settings)
+        {
+            builder.RegisterInstance<IBitCoinTransactionsRepository>(
+                new BitCoinTransactionsRepository(
+                    new AzureTableStorage<BitCoinTransactionEntity>(settings.BitCoinQueueConnectionString, "BitCoinTransactions", _log)));
+
+            builder.RegisterInstance<IWalletCredentialsRepository>(
+                new WalletCredentialsRepository(
+                    new AzureTableStorage<WalletCredentialsEntity>(settings.ClientPersonalInfoConnString, "WalletCredentials", _log)));
+
+
+            builder.RegisterInstance<IPaymentTransactionsRepository>(
+                new PaymentTransactionsRepository(
+                    new AzureTableStorage<PaymentTransactionEntity>(settings.ClientPersonalInfoConnString, "PaymentTransactions", _log),
+                    new AzureTableStorage<AzureMultiIndex>(settings.ClientPersonalInfoConnString, "PaymentTransactions", _log)));
+
+            builder.RegisterInstance<IPaymentSystemsRawLog>(
+                new PaymentSystemsRawLog(new AzureTableStorage<PaymentSystemRawLogEventEntity>(settings.LogsConnString, "PaymentSystemsLog", _log)));
         }
     }
 }

@@ -22,6 +22,7 @@
     <PackageReference Include="Lykke.Common.ApiLibrary" Version="1.0.9" />
     <PackageReference Include="Lykke.JobTriggers" Version="1.1.9" />
     <PackageReference Include="Lykke.Logs" Version="1.0.17" />
+    <PackageReference Include="Lykke.MatchingEngineConnector" Version="1.0.8" />
     <PackageReference Include="Lykke.SettingsReader" Version="1.0.38" />
     <PackageReference Include="Lykke.SlackNotification.AzureQueue" Version="1.0.4" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics" Version="1.1.2" />
@@ -36,6 +37,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Lykke.Job.QuantaQueueHandler.AzureRepositories\Lykke.Job.QuantaQueueHandler.AzureRepositories.csproj" />
     <ProjectReference Include="..\Lykke.Job.QuantaQueueHandler.Core\Lykke.Job.QuantaQueueHandler.Core.csproj" />
     <ProjectReference Include="..\Lykke.Job.QuantaQueueHandler.Services\Lykke.Job.QuantaQueueHandler.Services.csproj" />
   </ItemGroup>
