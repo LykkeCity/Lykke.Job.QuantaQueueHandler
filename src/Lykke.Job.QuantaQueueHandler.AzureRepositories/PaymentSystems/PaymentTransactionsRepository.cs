@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using AzureStorage;
 using AzureStorage.Tables.Templates.Index;
@@ -44,25 +42,6 @@ namespace Lykke.Job.QuantaQueueHandler.AzureRepositories.PaymentSystems
 
         }
 
-        public async Task<IEnumerable<IPaymentTransaction>> GetAsync(DateTime from, DateTime to, Func<IPaymentTransaction, bool> filter)
-        {
-            to = to.Date.AddDays(1);
-            var partitionKey = PaymentTransactionEntity.IndexCommon.GeneratePartitionKey();
-            return await _tableStorage.WhereAsync(partitionKey, from, to, ToIntervalOption.ExcludeTo, filter);
-        }
-
-        public async Task<IEnumerable<IPaymentTransaction>> GetByClientIdAsync(string clientId)
-        {
-            var partitionKey = PaymentTransactionEntity.IndexByClient.GeneratePartitionKey(clientId);
-            return await _tableStorage.GetDataAsync(partitionKey);
-        }
-
-
-        public async Task<IPaymentTransaction> GetByTransactionIdAsync(string id)
-        {
-            return await _tableStorageIndices.GetFirstOrDefaultAsync(IndexPartitinKey, id, _tableStorage);
-        }
-
         public async Task<IPaymentTransaction> TryCreateAsync(IPaymentTransaction paymentTransaction)
         {
             if (paymentTransaction == null) throw new ArgumentNullException(nameof(paymentTransaction));
@@ -81,46 +60,6 @@ namespace Lykke.Job.QuantaQueueHandler.AzureRepositories.PaymentSystems
             return paymentTransaction;
         }
 
-        public async Task<IPaymentTransaction> StartProcessingTransactionAsync(string id, string paymentAggregatorTransactionId = null)
-        {
-            return await _tableStorageIndices.MergeAsync(IndexPartitinKey, id, _tableStorage, entity =>
-            {
-                if (entity.GetPaymentStatus() != PaymentStatus.Created)
-                    return null;
-
-                entity.SetPaymentStatus(PaymentStatus.Processing);
-                entity.AggregatorTransactionId = paymentAggregatorTransactionId;
-                return entity;
-            });
-        }
-
-
-        public async Task<IPaymentTransaction> SetAggregatorTransactionId(string id, string aggregatorTransactionId)
-        {
-            return await _tableStorageIndices.MergeAsync(IndexPartitinKey, id, _tableStorage, entity =>
-            {
-                entity.AggregatorTransactionId = aggregatorTransactionId;
-                return entity;
-            });
-        }
-
-        public async Task<IEnumerable<IPaymentTransaction>> ScanAndFindAsync(Func<IPaymentTransaction, bool> callback)
-        {
-            var partitionKey = PaymentTransactionEntity.IndexCommon.GeneratePartitionKey();
-            return await _tableStorage.GetDataAsync(partitionKey, callback);
-        }
-
-        public async Task<IPaymentTransaction> SetStatus(string id, PaymentStatus status)
-        {
-
-            return await _tableStorageIndices.MergeAsync(IndexPartitinKey, id, _tableStorage, entity =>
-            {
-                entity.SetPaymentStatus(status);
-                return entity;
-            });
-
-        }
-
         public async Task<IPaymentTransaction> SetAsOkAsync(string id, double depositedAmount, double? rate)
         {
             return await _tableStorageIndices.MergeAsync(IndexPartitinKey, id, _tableStorage, entity =>
@@ -131,18 +70,5 @@ namespace Lykke.Job.QuantaQueueHandler.AzureRepositories.PaymentSystems
                 return entity;
             });
         }
-
-
-        public async Task<IPaymentTransaction> GetLastByDate(string clientId)
-        {
-
-            var partitionKey = PaymentTransactionEntity.IndexByClient.GeneratePartitionKey(clientId);
-
-            var entities = await _tableStorage.GetDataAsync(partitionKey);
-
-            return entities.OrderByDescending(itm => itm.Created).FirstOrDefault();
-        }
-
-
     }
 }

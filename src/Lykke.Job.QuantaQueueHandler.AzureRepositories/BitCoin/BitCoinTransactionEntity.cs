@@ -49,12 +49,5 @@ namespace Lykke.Job.QuantaQueueHandler.AzureRepositories.BitCoin
             RequestData = requestData;
             ContextData = contextData;
         }
-
-
-        internal void UpdateResponse(string resp, DateTime? dateTime)
-        {
-            ResponseData = resp;
-            ResponseDateTime = dateTime ?? DateTime.UtcNow;
-        }
     }
 }
