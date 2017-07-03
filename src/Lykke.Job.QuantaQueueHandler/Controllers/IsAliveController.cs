@@ -41,6 +41,13 @@ namespace Lykke.Job.QuantaQueueHandler.Controllers
             {
                 Version = Microsoft.Extensions.PlatformAbstractions.PlatformServices.Default.Application.ApplicationVersion,
                 Env = Environment.GetEnvironmentVariable("ENV_INFO"),
+                LastMessageProcessingStartedMoment = _healthService.LastMessageProcessingStartedMoment,
+                LastMessageProcessingDuration = _healthService.LastMessageProcessingDuration,
+                MessageProcessingIdleDuration = _healthService.MessageProcessingIdleDuration,
+                MessageProcessingFailedInARow = _healthService.MessageProcessingFailedInARow,
+                MaxHealthyMessageProcessingDuration = _healthService.MaxHealthyMessageProcessingDuration,
+                MaxHealthyMessageProcessingIsIdleDuration = _healthService.MaxHealthyMessageProcessingIdleDuration,
+                MaxHealthyMessageProcessingFailedInARow = _healthService.MaxHealthyMessageProcessingFailedInARow
             });
         }
     }
