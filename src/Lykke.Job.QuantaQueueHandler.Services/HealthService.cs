@@ -16,9 +16,11 @@ namespace Lykke.Job.QuantaQueueHandler.Services
         private bool WasLastMessageProcessingCompleted { get; set; }
         private bool WasMessageProcessingEverStarted { get; set; }
 
+        private readonly bool _allowIdling;
 
-        public HealthService(TimeSpan maxHealthyMessageProcessingDuration, int maxHealthyMessageProcessingFailedInARow, TimeSpan maxHealthyMessageProcessingIdleDuration)
+        public HealthService(bool allowIdling, TimeSpan maxHealthyMessageProcessingDuration, int maxHealthyMessageProcessingFailedInARow, TimeSpan maxHealthyMessageProcessingIdleDuration)
         {
+            _allowIdling = allowIdling;
             MaxHealthyMessageProcessingDuration = maxHealthyMessageProcessingDuration;
             MaxHealthyMessageProcessingFailedInARow = maxHealthyMessageProcessingFailedInARow;
             MaxHealthyMessageProcessingIdleDuration = maxHealthyMessageProcessingIdleDuration;
@@ -32,28 +34,33 @@ namespace Lykke.Job.QuantaQueueHandler.Services
                 return $"Message processing has failed last {failedInARow} times in a row";
             }
 
-            if (!WasMessageProcessingEverStarted)
-            {
-                return "Waiting for first message processing started";
-            }
-
-            if (!WasLastMessageProcessingCompleted && MessageProcessingFailedInARow == 0 && WasMessageProcessingEverStarted)
-            {
-                return $"Waiting {DateTime.UtcNow - LastMessageProcessingStartedMoment} for first message processing completed";
-            }
-
             var lastDuration = LastMessageProcessingDuration;
             if (lastDuration > MaxHealthyMessageProcessingDuration)
             {
                 return $"Last message processing was lasted for {lastDuration}, which is too long";
             }
 
-            var idleDuration = MessageProcessingIdleDuration;
-            if (idleDuration > MaxHealthyMessageProcessingIdleDuration)
+            if (!_allowIdling)
             {
-                return $"Message processing is idle for {idleDuration}, which is too long";
-            }
+                if (!WasMessageProcessingEverStarted)
+                {
+                    return "Waiting for first message processing started";
+                }
 
+                if (!WasLastMessageProcessingCompleted && MessageProcessingFailedInARow == 0 &&
+                    WasMessageProcessingEverStarted)
+                {
+                    return
+                        $"Waiting {DateTime.UtcNow - LastMessageProcessingStartedMoment} for first message processing completed";
+                }
+
+                var idleDuration = MessageProcessingIdleDuration;
+                if (idleDuration > MaxHealthyMessageProcessingIdleDuration)
+                {
+                    return $"Message processing is idle for {idleDuration}, which is too long";
+                }
+            }
+            
             return null;
         }
 

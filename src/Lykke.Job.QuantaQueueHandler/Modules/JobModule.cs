@@ -37,9 +37,10 @@ namespace Lykke.Job.QuantaQueueHandler.Modules
                 .SingleInstance();
 
             builder.RegisterInstance<IHealthService>(new HealthService(
-                _settings.Health.MaxMessageProcessingDuration,
-                _settings.Health.MaxMessageProcessingFailedInARow,
-                _settings.Health.MaxMessageProcessingIdleDuration));
+                allowIdling: true, 
+                maxHealthyMessageProcessingDuration: _settings.Health.MaxMessageProcessingDuration,
+                maxHealthyMessageProcessingFailedInARow: _settings.Health.MaxMessageProcessingFailedInARow,
+                maxHealthyMessageProcessingIdleDuration: TimeSpan.Zero));
 
             // NOTE: You can implement your own poison queue notifier. See https://github.com/LykkeCity/JobTriggers/blob/master/readme.md
             // builder.Register<PoisionQueueNotifierImplementation>().As<IPoisionQueueNotifier>();
