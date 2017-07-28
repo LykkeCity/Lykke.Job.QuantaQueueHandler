@@ -2,12 +2,12 @@
 using System.Threading.Tasks;
 using Common;
 using Common.Log;
+using Lykke.Service.ExchangeOperations.Contracts;
 using Lykke.Job.QuantaQueueHandler.Contract;
 using Lykke.Job.QuantaQueueHandler.Core;
 using Lykke.Job.QuantaQueueHandler.Core.Domain.BitCoin;
 using Lykke.Job.QuantaQueueHandler.Core.Domain.PaymentSystems;
 using Lykke.Job.QuantaQueueHandler.Core.Services;
-using Lykke.Job.QuantaQueueHandler.Services.Exchange;
 using Lykke.JobTriggers.Triggers.Attributes;
 
 namespace Lykke.Job.QuantaQueueHandler.TriggerHandlers
@@ -16,14 +16,18 @@ namespace Lykke.Job.QuantaQueueHandler.TriggerHandlers
     {
         private readonly IWalletCredentialsRepository _walletCredentialsRepository;
         private readonly ILog _log;
-        private readonly ExchangeOperationsService _exchangeOperationsService;
+        private readonly IExchangeOperationsService _exchangeOperationsService;
         private readonly IPaymentSystemsRawLog _paymentSystemsRawLog;
         private readonly IPaymentTransactionsRepository _paymentTransactionsRepository;
         private readonly IHealthService _healthService;
 
-        public QuantaQueueHandler(IWalletCredentialsRepository walletCredentialsRepository, ILog log,
-            ExchangeOperationsService exchangeOperationsService, IPaymentSystemsRawLog paymentSystemsRawLog,
-            IPaymentTransactionsRepository paymentTransactionsRepository, IHealthService healthService)
+        public QuantaQueueHandler(
+            IWalletCredentialsRepository walletCredentialsRepository,
+            ILog log,
+            IExchangeOperationsService exchangeOperationsService,
+            IPaymentSystemsRawLog paymentSystemsRawLog,
+            IPaymentTransactionsRepository paymentTransactionsRepository,
+            IHealthService healthService)
         {
             _walletCredentialsRepository = walletCredentialsRepository;
             _log = log;
@@ -70,7 +74,7 @@ namespace Lykke.Job.QuantaQueueHandler.TriggerHandlers
                     return;
                 }
 
-                var result = await _exchangeOperationsService.IssueAsync(walletCreds.ClientId, LykkeConstants.QuantaAssetId, msg.Amount);
+                var result = await _exchangeOperationsService.CashInAsync(walletCreds.ClientId, LykkeConstants.QuantaAssetId, msg.Amount);
 
                 if (!result.IsOk())
                 {

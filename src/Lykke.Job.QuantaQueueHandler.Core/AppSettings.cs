@@ -14,6 +14,7 @@ namespace Lykke.Job.QuantaQueueHandler.Core
             public MatchingOrdersSettings MatchingEngine { get; set; }
             public HealthSettings Health { get; set; }
             public string TriggerQueueConnectionString { get; set; }
+            public string ExchangeOperationsServiceUrl { get; set; }
         }
 
         public class DbSettings
