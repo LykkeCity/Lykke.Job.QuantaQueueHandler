@@ -1,53 +1,37 @@
 ﻿using System;
-using System.Net;
+using Lykke.SettingsReader.Attributes;
+using Lykke.Service.ExchangeOperations.Client;
 
-namespace Lykke.Job.QuantaQueueHandler.Core
+namespace Lykke.Job.QuantaQueueHandler
 {
     public class AppSettings
     {
         public QuantaQueueHandlerSettings QuantaQueueHandlerJob { get; set; }
         public SlackNotificationsSettings SlackNotifications { get; set; }
+        public ExchangeOperationsServiceClientSettings ExchangeOperationsServiceClient { get; set; }
 
         public class QuantaQueueHandlerSettings
         {
             public DbSettings Db { get; set; }
-            public MatchingOrdersSettings MatchingEngine { get; set; }
             public HealthSettings Health { get; set; }
+            [AzureQueueCheck]
             public string TriggerQueueConnectionString { get; set; }
-            public string ExchangeOperationsServiceUrl { get; set; }
         }
 
         public class DbSettings
         {
+            [AzureTableCheck]
             public string LogsConnString { get; set; }
+            [AzureTableCheck]
             public string BitCoinQueueConnectionString { get; set; }
+            [AzureTableCheck]
             public string ClientPersonalInfoConnString { get; set; }
-        }
-
-        public class MatchingOrdersSettings
-        {
-            public IpEndpointSettings IpEndpoint { get; set; }
         }
 
         public class HealthSettings
         {
             public TimeSpan MaxMessageProcessingDuration { get; set; }
             public int MaxMessageProcessingFailedInARow { get; set; }
-        }
-
-        public class IpEndpointSettings
-        {
-            public string Host { get; set; }
-            public int Port { get; set; }
-
-            public IPEndPoint GetClientIpEndPoint(bool useInternal = false)
-            {
-                IPAddress address;
-                if (!IPAddress.TryParse(Host, out address))
-                    address = Dns.GetHostAddressesAsync(Host).Result[0];
-
-                return new IPEndPoint(address, Port);
-            }
         }
 
         public class SlackNotificationsSettings

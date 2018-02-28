@@ -3,7 +3,7 @@ using System.Net;
 using Lykke.Job.QuantaQueueHandler.Core.Services;
 using Lykke.Job.QuantaQueueHandler.Models;
 using Microsoft.AspNetCore.Mvc;
-using Swashbuckle.SwaggerGen.Annotations;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Lykke.Job.QuantaQueueHandler.Controllers
 {
