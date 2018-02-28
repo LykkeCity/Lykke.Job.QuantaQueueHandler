@@ -5,7 +5,6 @@ using AzureStorage.Tables;
 using Common.Log;
 using Lykke.Common.ApiLibrary.Middleware;
 using Lykke.Common.ApiLibrary.Swagger;
-using Lykke.Job.QuantaQueueHandler.Core;
 using Lykke.Job.QuantaQueueHandler.Models;
 using Lykke.Job.QuantaQueueHandler.Modules;
 using Lykke.JobTriggers.Extenstions;
@@ -29,8 +28,6 @@ namespace Lykke.Job.QuantaQueueHandler
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
                 .AddEnvironmentVariables();
 
             Configuration = builder.Build();
@@ -52,12 +49,11 @@ namespace Lykke.Job.QuantaQueueHandler
             });
 
             var builder = new ContainerBuilder();
-            var appSettings = Environment.IsDevelopment()
-                ? Configuration.Get<AppSettings>()
-                : HttpSettingsLoader.Load<AppSettings>(Configuration.GetValue<string>("SettingsUrl"));
-            var log = CreateLogWithSlack(services, appSettings);
+            var settingsManager = Configuration.LoadSettings<AppSettings>("SettingsUrl");
+            var appSettings = settingsManager.CurrentValue;
+            var log = CreateLogWithSlack(services, settingsManager);
 
-            builder.RegisterModule(new JobModule(appSettings.QuantaQueueHandlerJob, log));
+            builder.RegisterModule(new JobModule(appSettings, settingsManager, log));
 
             if (string.IsNullOrWhiteSpace(appSettings.QuantaQueueHandlerJob.TriggerQueueConnectionString))
             {
@@ -67,7 +63,7 @@ namespace Lykke.Job.QuantaQueueHandler
             {
                 builder.AddTriggers(pool =>
                 {
-                    pool.AddDefaultConnection(appSettings.QuantaQueueHandlerJob.TriggerQueueConnectionString);
+                    pool.AddDefaultConnection(settingsManager.Nested(s => s.QuantaQueueHandlerJob.TriggerQueueConnectionString));
                 });
             }
 
@@ -89,7 +85,11 @@ namespace Lykke.Job.QuantaQueueHandler
 
             app.UseMvc();
             app.UseSwagger();
-            app.UseSwaggerUi();
+            app.UseSwaggerUI(x =>
+            {
+                x.RoutePrefix = "swagger/ui";
+                x.SwaggerEndpoint("/swagger/v1/swagger.json", "v1");
+            });
 
             appLifetime.ApplicationStopped.Register(() =>
             {
@@ -97,40 +97,49 @@ namespace Lykke.Job.QuantaQueueHandler
             });
         }
 
-        private static ILog CreateLogWithSlack(IServiceCollection services, AppSettings settings)
+        private static ILog CreateLogWithSlack(IServiceCollection services, IReloadingManager<AppSettings> settingsManager)
         {
-            LykkeLogToAzureStorage logToAzureStorage = null;
+            var logAggregate = new AggregateLogger();
 
             var logToConsole = new LogToConsole();
-            var logAggregate = new LogAggregate();
+            logAggregate.AddLog(logToConsole);
 
-            logAggregate.AddLogger(logToConsole);
+            var dbLogConnectionStringManager = settingsManager.Nested(x => x.QuantaQueueHandlerJob.Db.LogsConnString);
+            var dbLogConnectionString = dbLogConnectionStringManager.CurrentValue;
 
-            var dbLogConnectionString = settings.QuantaQueueHandlerJob.Db.LogsConnString;
-
-            // Creating azure storage logger, which logs own messages to concole log
-            if (!string.IsNullOrEmpty(dbLogConnectionString) && !(dbLogConnectionString.StartsWith("${") && dbLogConnectionString.EndsWith("}")))
+            if (string.IsNullOrEmpty(dbLogConnectionString))
             {
-                logToAzureStorage = new LykkeLogToAzureStorage("Lykke.Job.QuantaQueueHandler", new AzureTableStorage<LogEntity>(
-                    dbLogConnectionString, "QuantaQueueHandlerLog", logToConsole));
-
-                logAggregate.AddLogger(logToAzureStorage);
+                logToConsole.WriteWarningAsync(nameof(Startup), nameof(CreateLogWithSlack), "Table loggger is not inited").Wait();
+                return logAggregate;
             }
 
-            // Creating aggregate log, which logs to console and to azure storage, if last one specified
-            var log = logAggregate.CreateLogger();
+            if (dbLogConnectionString.StartsWith("${") && dbLogConnectionString.EndsWith("}"))
+                throw new InvalidOperationException($"LogsConnString {dbLogConnectionString} is not filled in settings");
+
+            var persistenceManager = new LykkeLogToAzureStoragePersistenceManager(
+                AzureTableStorage<LogEntity>.Create(dbLogConnectionStringManager, "QuantaQueueHandlerLog", logToConsole),
+                logToConsole);
+
+            var settings = settingsManager.CurrentValue;
 
             // Creating slack notification service, which logs own azure queue processing messages to aggregate log
             var slackService = services.UseSlackNotificationsSenderViaAzureQueue(new AzureQueueIntegration.AzureQueueSettings
             {
                 ConnectionString = settings.SlackNotifications.AzureQueue.ConnectionString,
                 QueueName = settings.SlackNotifications.AzureQueue.QueueName
-            }, log);
+            }, logAggregate);
 
-            // Finally, setting slack notification for azure storage log, which will forward necessary message to slack service
-            logToAzureStorage?.SetSlackNotification(slackService);
+            var slackNotificationsManager = new LykkeLogToAzureSlackNotificationsManager(slackService, logAggregate);
 
-            return log;
+            // Creating azure storage logger, which logs own messages to concole log
+            var azureStorageLogger = new LykkeLogToAzureStorage(
+                persistenceManager,
+                slackNotificationsManager,
+                logAggregate);
+            azureStorageLogger.Start();
+            logAggregate.AddLog(azureStorageLogger);
+
+            return logAggregate;
         }
     }
 }

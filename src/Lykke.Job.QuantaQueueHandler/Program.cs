@@ -40,12 +40,16 @@ namespace Lykke.Job.QuantaQueueHandler
 
                 triggerHost = new TriggerHost(webHost.Services);
 
-                webHostTask = Task.Factory.StartNew(() => webHost.Run(webHostCancellationTokenSource.Token));
+                webHostTask = Task.Factory.StartNew(() => webHost.RunAsync(webHostCancellationTokenSource.Token).GetAwaiter().GetResult());
                 triggerHostTask = triggerHost.Start();
 
                 // WhenAny to handle any task termination with exception, 
                 // or gracefully termination of webHostTask
-                Task.WhenAny(webHostTask, triggerHostTask).Wait();
+                Task.WhenAny(webHostTask, triggerHostTask).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
             }
             finally
             {
